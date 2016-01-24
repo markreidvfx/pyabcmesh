@@ -47,7 +47,8 @@ cdef extern from "Alembic/AbcGeom/All.h" namespace "Alembic::AbcGeom" nogil:
             bool valid()
 
     cdef cppclass IObject:
-        pass
+        string &getName()
+        string &getFullName()
 
     cdef cppclass ISampleSelector:
         pass
@@ -62,10 +63,20 @@ cdef extern from "Alembic/AbcGeom/All.h" namespace "Alembic::AbcGeom" nogil:
         IN3fGeomParam getNormalsParam()
         IV2fGeomParam getUVsParam()
 
+    cdef cppclass CameraSample:
+        double getFocalLength()
+        double getVerticalAperture()
+        double getNearClippingPlane()
+        double getFarClippingPlane()
+
     cdef cppclass IPolyMesh(IObject):
-        string &getName()
-        string &getFullName()
         IPolyMeshSchema getSchema()
+
+    cdef cppclass ICameraSchema:
+        CameraSample getValue(ISampleSelector iSS);
+
+    cdef cppclass ICamera(IObject):
+        pass
 
     cdef cppclass IArchive:
         IObject getTop()

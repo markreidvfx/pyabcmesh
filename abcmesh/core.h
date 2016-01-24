@@ -11,12 +11,13 @@ using namespace Alembic::AbcGeom;
 namespace AbcF = ::Alembic::AbcCoreFactory;
 
 IArchive open_abc(std::string path);
-void read_mesh_objects(IObject object, std::vector<IPolyMesh> &mesh_list);
+void read_objects(IObject object, std::vector<IPolyMesh> &mesh_list, std::vector<ICamera> &camera_list);
 M44d get_final_matrix(const IObject &iObj, chrono_t seconds);
 IPolyMeshSchema::Sample get_mesh_sampler(IPolyMesh mesh, double seconds);
 
 IV2fGeomParam::Sample get_iv2_sampler(IV2fGeomParam param, double seconds);
 IN3fGeomParam::Sample get_in3_sampler(IN3fGeomParam param, double seconds);
+CameraSample get_camera_sampler(ICamera camera, double seconds);
 
 int get_size_p3f(P3fArraySamplePtr &item);
 float * get_pointer_p3f(P3fArraySamplePtr &item);

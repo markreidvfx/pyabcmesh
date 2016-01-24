@@ -9,7 +9,7 @@ IArchive open_abc(std::string path)
     return archive;
 }
 
-void read_mesh_objects(IObject object, std::vector<IPolyMesh> &mesh_list)
+void read_objects(IObject object, std::vector<IPolyMesh> &mesh_list, std::vector<ICamera> &camera_list)
 {
     const size_t child_count = object.getNumChildren();
     for (size_t i = 0; i < child_count; ++i) {
@@ -17,8 +17,11 @@ void read_mesh_objects(IObject object, std::vector<IPolyMesh> &mesh_list)
         if (IPolyMesh::matches(child_header)) {
             mesh_list.push_back(IPolyMesh(object, child_header.getName()));
         }
+        if (ICamera::matches(child_header)) {
+               camera_list.push_back(ICamera(object, child_header.getName()));
+       }
 
-        read_mesh_objects(object.getChild(i), mesh_list);
+        read_objects(object.getChild(i), mesh_list, camera_list);
     }
 
 }
@@ -69,6 +72,13 @@ IN3fGeomParam::Sample get_in3_sampler(IN3fGeomParam param, double seconds)
 	ISampleSelector sel(seconds);
 	IN3fGeomParam::Sample sample(param.getIndexedValue(sel));
 	 return sample;
+}
+
+CameraSample get_camera_sampler(ICamera camera, double seconds)
+{
+	ISampleSelector sel(seconds);
+	ICameraSchema schema = camera.getSchema();
+	return schema.getValue(sel);
 }
 
 int get_size_p3f(P3fArraySamplePtr &item)

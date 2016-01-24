@@ -1,5 +1,6 @@
 from libcpp.string cimport string
 from libcpp.vector cimport vector
+from libc cimport math
 
 from cython cimport view
 cimport cython
@@ -11,12 +12,13 @@ from alembic cimport IN3fGeomParam
 
 cdef extern from "core.h" nogil:
     cdef alembic.IArchive open_abc(string path)
-    cdef void read_mesh_objects(alembic.IObject object, vector[alembic.IPolyMesh] &mesh_list)
+    cdef void read_objects(alembic.IObject object, vector[alembic.IPolyMesh] &mesh_list, vector[alembic.ICamera] &camera_list)
     cdef alembic.M44d get_final_matrix(alembic.IObject &iObj, double seconds)
 
     cdef IPolyMeshSchema.Sample get_mesh_sampler(alembic.IPolyMesh mesh, double seconds)
     cdef IV2fGeomParam.Sample get_iv2_sampler(alembic.IV2fGeomParam param, double seconds)
     cdef IN3fGeomParam.Sample get_in3_sampler(alembic.IN3fGeomParam param, double seconds)
+    cdef alembic.CameraSample get_camera_sampler(alembic.ICamera camera, double seconds)
 
     cdef int get_size_p3f(alembic.P3fArraySamplePtr &item)
     cdef float * get_pointer_p3f(alembic.P3fArraySamplePtr &item)
@@ -36,26 +38,129 @@ cdef extern from "core.h" nogil:
 def open(str path):
     return AbcFile(path)
 
+cdef get_matrix(alembic.IObject obj, double seconds):
+    cdef alembic.M44d m = get_final_matrix(obj, seconds)
+    cdef double[:,:] src =  <double[:4, :4]> &m[0][0]
+    cdef float[:,:] dst = view.array(shape=(4, 4), itemsize=sizeof(float), format="f")
+    # transpose for numpy
+    for y in range(4):
+        for x in range(4):
+            dst[y][x] = src[x][y]
+
+    return dst
+
 cdef class AbcFile(object):
     cdef alembic.IArchive archive
-    cdef public list mesh_list
+    cdef readonly list mesh_list
+    cdef readonly list camera_list
     cdef readonly double start_time
     cdef readonly double end_time
 
     def __init__(self, str path):
         cdef vector[alembic.IPolyMesh] mesh_list
+        cdef vector[alembic.ICamera] camera_list
         cdef AbcMesh mesh
+        cdef AbcCamera camera
         self.archive = open_abc(path)
-        self.mesh_list =[]
+        self.mesh_list = []
+        self.camera_list = []
 
         alembic.GetArchiveStartAndEndTime(self.archive, self.start_time, self.end_time)
 
-        read_mesh_objects(self.archive.getTop(), mesh_list)
+        read_objects(self.archive.getTop(), mesh_list, camera_list)
 
         for i in range(mesh_list.size()):
             mesh = AbcMesh.__new__(AbcMesh)
             mesh.mesh = mesh_list[i]
             self.mesh_list.append(mesh)
+
+        for i in range(camera_list.size()):
+            camera = AbcCamera.__new__(AbcCamera)
+            camera.camera = camera_list[i]
+            self.camera_list.append(camera)
+
+def frustum(float left, float right, float bottom, float top, float near, float far):
+    assert(right != left)
+    assert(bottom != top)
+    assert(near != far)
+
+    m = view.array(shape=(4, 4), itemsize=sizeof(float), format="f")
+    for y in range(4):
+        for x in range(4):
+            m[y][x] = 0.0
+
+    m[0][0] = +2.0 * near / (right - left)
+    m[0][2] = (right + left) / (right - left)
+    m[1][1] = +2.0 * near / (top - bottom)
+    m[1][3] = (top + bottom) / (top - bottom)
+    m[2][2] = -(far + near) / (far - near)
+    m[2][3] = -2.0 * near * far / (far - near)
+    m[3][2] = -1.0
+    return m
+
+cdef double degrees(double value):
+    return value * 180 / math.M_PI
+
+cdef class AbcCamera(object):
+    cdef alembic.ICamera camera
+    cdef public double time
+
+    def __cinit__(self):
+        self.time = 0.0
+
+    def __init__(self):
+        raise TypeError("cannot initialize from python")
+
+    def perspective_matrix(self, aspect = 1.0, znear = None, zfar = None):
+        if znear is None:
+            znear = self.znear
+        if zfar is None:
+            zfar = self.zfar
+
+        assert(znear != zfar)
+
+        cdef double a = aspect
+        cdef double znear_d = znear
+        cdef double zfar_d = zfar
+        cdef double fovy = self.fovy
+
+        cdef double h = math.tan(fovy / 360.0 * math.M_PI) * znear_d
+        cdef double w = h * a
+        return frustum(-w, w, -h, h, znear_d, zfar_d)
+
+    property name:
+        def __get__(self):
+            return self.mesh.getName()
+
+    property full_name:
+        def __get__(self):
+            return self.mesh.getFullName()
+
+    property world_matrix:
+        def __get__(self):
+            return get_matrix(self.camera, self.time)
+
+    property  znear:
+        def __get__(self):
+            cdef alembic.CameraSample sampler = get_camera_sampler(self.camera, self.time)
+            cdef double near = sampler.getNearClippingPlane()
+            return near
+    property  zfar:
+        def __get__(self):
+            cdef alembic.CameraSample sampler = get_camera_sampler(self.camera, self.time)
+            cdef double far = sampler.getFarClippingPlane()
+            return far
+
+    property fovy:
+        def __get__(self):
+            cdef alembic.CameraSample sampler = get_camera_sampler(self.camera, self.time)
+
+            cdef double focal_length = sampler.getFocalLength()
+            cdef double vertical_aperture = sampler.getVerticalAperture()
+            # * 10.0 since vertical film aperture is in cm
+            cdef double fovy = 2.0 * degrees(math.atan(vertical_aperture * 10.0 /
+                                             (2.0 * focal_length)))
+            return fovy
 
 cdef class AbcMesh(object):
     cdef alembic.IPolyMesh mesh
@@ -75,17 +180,9 @@ cdef class AbcMesh(object):
         def __get__(self):
             return self.mesh.getFullName()
 
-    property matrix:
+    property world_matrix:
         def __get__(self):
-            cdef alembic.M44d m = get_final_matrix(self.mesh, self.time)
-            cdef double[:,:] src =  <double[:4, :4]> &m[0][0]
-            cdef double[:,:] dst = view.array(shape=(4, 4), itemsize=sizeof(double), format="d")
-            # transpose for numpy
-            for y in range(4):
-                for x in range(4):
-                    dst[y][x] = src[x][y]
-
-            return dst
+            return get_matrix(self.mesh, self.time)
 
     property bbox:
         def __get__(self):
@@ -93,7 +190,7 @@ cdef class AbcMesh(object):
             cdef IPolyMeshSchema.Sample sampler = get_mesh_sampler(self.mesh, self.time)
             cdef alembic.Box3d bounds = sampler.getSelfBounds()
 
-            cdef double[:,:] bbox = view.array(shape=(2, 4), itemsize=sizeof(double), format="d")
+            cdef float[:,:] bbox = view.array(shape=(2, 4), itemsize=sizeof(float), format="f")
 
             bbox[0][0] = bounds.min.x
             bbox[0][1] = bounds.min.y

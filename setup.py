@@ -59,7 +59,7 @@ extensions = [Extension("abcmesh",
 setup(
     name = 'PyAbcMesh',
     version='0.1.0',
-    description='Alembic bindings that provide fast access to mesh data via buffer protocol',
+    description='Python Alembic bindings that provide fast access to mesh data via buffer protocol',
     author="Mark Reid",
     author_email="mindmark@gmail.com",
     url="https://github.com/markreidvfx/pyabcmesh",
