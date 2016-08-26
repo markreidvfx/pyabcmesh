@@ -10,8 +10,10 @@ from alembic cimport IPolyMeshSchema
 from alembic cimport IV2fGeomParam
 from alembic cimport IN3fGeomParam
 
+import os
+
 cdef extern from "core.h" nogil:
-    cdef alembic.IArchive open_abc(string path)
+    cdef alembic.IArchive open_abc(string path) except +
     cdef void read_objects(alembic.IObject object, vector[alembic.IPolyMesh] &mesh_list, vector[alembic.ICamera] &camera_list)
     cdef alembic.M44d get_final_matrix(alembic.IObject &iObj, double seconds)
 
@@ -36,6 +38,8 @@ cdef extern from "core.h" nogil:
     cdef unsigned int *get_pointer_uint32(alembic.UInt32ArraySamplePtr &item)
 
 def open(str path):
+    if not os.path.exists(path):
+      raise IOError("No such file or directory: '%s'" % path)
     return AbcFile(path)
 
 cdef get_matrix(alembic.IObject obj, double seconds):
@@ -130,7 +134,7 @@ cdef class AbcCamera(object):
 
     property name:
         def __get__(self):
-            return self.mesh.getName()
+            return self.camera.getName()
 
     property full_name:
         def __get__(self):
@@ -161,6 +165,21 @@ cdef class AbcCamera(object):
             cdef double fovy = 2.0 * degrees(math.atan(vertical_aperture * 10.0 /
                                              (2.0 * focal_length)))
             return fovy
+    property focal_length:
+        def __get__(self):
+            cdef alembic.CameraSample sampler = get_camera_sampler(self.camera, self.time)
+            return sampler.getFocalLength()
+
+    property fovx:
+        def __get__(self):
+            cdef alembic.CameraSample sampler = get_camera_sampler(self.camera, self.time)
+
+            cdef double focal_length = sampler.getFocalLength()
+            cdef double horizontal_aperture = sampler.getHorizontalAperture()
+            # * 10.0 since vertical film aperture is in cm
+            cdef double fovx = 2.0 * degrees(math.atan(horizontal_aperture * 10.0 /
+                                             (2.0 * focal_length)))
+            return fovx
 
 cdef class AbcMesh(object):
     cdef alembic.IPolyMesh mesh

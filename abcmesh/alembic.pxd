@@ -66,6 +66,7 @@ cdef extern from "Alembic/AbcGeom/All.h" namespace "Alembic::AbcGeom" nogil:
     cdef cppclass CameraSample:
         double getFocalLength()
         double getVerticalAperture()
+        double getHorizontalAperture()
         double getNearClippingPlane()
         double getFarClippingPlane()
 
@@ -80,5 +81,6 @@ cdef extern from "Alembic/AbcGeom/All.h" namespace "Alembic::AbcGeom" nogil:
 
     cdef cppclass IArchive:
         IObject getTop()
+        bool valid();
 
     cdef void GetArchiveStartAndEndTime(IArchive &iArchive, double &oStartTime, double & oEndTime)

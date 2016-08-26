@@ -25,6 +25,8 @@ HDF5_LIB_DIR = os.path.join(HDF5_PREFIX, "lib")
 BOOST_INCLUDE_DIR = os.path.join(BOOST_PREFIX, "include")
 BOOST_LIB_DIR =  os.path.join(BOOST_PREFIX, "lib")
 
+os.environ['ARCHFLAGS'] ="-arch x86_64"
+
 sourcefiles = [
 "abcmesh/abcmesh.pyx",
 "abcmesh/core.cpp"
@@ -46,14 +48,16 @@ extensions = [Extension("abcmesh",
         "Half",
         "Iex",
         "hdf5",
-        "hdf5_hl",
+        # "hdf5_hl",
     ],
     library_dirs = [
         ALEMBIC_LIB_DIR,
         ILMBASE_LIB_DIR,
         OPENEXR_LIB_DIR,
         HDF5_LIB_DIR,
-        BOOST_LIB_DIR,]
+        #BOOST_LIB_DIR
+        ],
+    extra_compile_args=["-std=c++11"]
 )]
 
 setup(

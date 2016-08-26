@@ -3,7 +3,7 @@
 IArchive open_abc(std::string path)
 {
     AbcF::IFactory factory;
-    factory.setPolicy(Abc::ErrorHandler::kQuietNoopPolicy);
+    factory.setPolicy(Abc::ErrorHandler::kNoisyNoopPolicy);
     AbcF::IFactory::CoreType coreType;
     IArchive archive = factory.getArchive(path, coreType);
     return archive;
