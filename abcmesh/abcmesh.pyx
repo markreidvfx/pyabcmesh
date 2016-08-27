@@ -181,6 +181,27 @@ cdef class AbcCamera(object):
                                              (2.0 * focal_length)))
             return fovx
 
+def bounds_to_bbox(float[:,:] bounds):
+    cdef float[:,:] bbox = view.array(shape=(8, 4), itemsize=sizeof(float), format="f")
+
+    cdef float minx = bounds[0][0]
+    cdef float miny = bounds[0][1]
+    cdef float minz = bounds[0][2]
+
+    cdef float maxx = bounds[1][0]
+    cdef float maxy = bounds[1][1]
+    cdef float maxz = bounds[1][2]
+
+    bbox[0][0], bbox[0][1], bbox[0][2], bbox[0][3] = minx, miny, minz, 1.0
+    bbox[1][0], bbox[1][1], bbox[1][2], bbox[1][3] = minx, miny, maxz, 1.0
+    bbox[2][0], bbox[2][1], bbox[2][2], bbox[2][3] = minx, maxy, minz, 1.0
+    bbox[3][0], bbox[3][1], bbox[3][2], bbox[3][3] = minx, maxy, maxz, 1.0
+    bbox[4][0], bbox[4][1], bbox[4][2], bbox[4][3] = maxx, miny, minz, 1.0
+    bbox[5][0], bbox[5][1], bbox[5][2], bbox[5][3] = maxx, miny, maxz, 1.0
+    bbox[6][0], bbox[6][1], bbox[6][2], bbox[6][3] = maxx, maxy, minz, 1.0
+    bbox[7][0], bbox[7][1], bbox[7][2], bbox[7][3] = maxx, maxy, maxz, 1.0
+    return bbox
+
 cdef class AbcMesh(object):
     cdef alembic.IPolyMesh mesh
     cdef public double time
@@ -203,25 +224,26 @@ cdef class AbcMesh(object):
         def __get__(self):
             return get_matrix(self.mesh, self.time)
 
-    property bbox:
+    property bounds:
         def __get__(self):
             cdef alembic.IPolyMeshSchema schema  = self.mesh.getSchema()
             cdef IPolyMeshSchema.Sample sampler = get_mesh_sampler(self.mesh, self.time)
-            cdef alembic.Box3d bounds = sampler.getSelfBounds()
+            cdef alembic.Box3d box3d = sampler.getSelfBounds()
 
-            cdef float[:,:] bbox = view.array(shape=(2, 4), itemsize=sizeof(float), format="f")
+            cdef float[:,:] bounds = view.array(shape=(2, 3), itemsize=sizeof(float), format="f")
 
-            bbox[0][0] = bounds.min.x
-            bbox[0][1] = bounds.min.y
-            bbox[0][2] = bounds.min.z
-            bbox[0][3] = 1.0
+            bounds[0][0] = box3d.min.x
+            bounds[0][1] = box3d.min.y
+            bounds[0][2] = box3d.min.z
 
-            bbox[1][0] = bounds.max.x
-            bbox[1][1] = bounds.max.y
-            bbox[1][2] = bounds.max.z
-            bbox[1][3] = 1.0
+            bounds[1][0] = box3d.max.x
+            bounds[1][1] = box3d.max.y
+            bounds[1][2] = box3d.max.z
+            return bounds
 
-            return bbox
+    property bbox:
+        def __get__(self):
+            return bounds_to_bbox(self.bounds)
 
     property face_counts:
         def __get__(self):
