@@ -202,6 +202,36 @@ def bounds_to_bbox(float[:,:] bounds):
     bbox[7][0], bbox[7][1], bbox[7][2], bbox[7][3] = maxx, maxy, maxz, 1.0
     return bbox
 
+def bbox_to_bounds(float[:,:] bbox):
+
+    cdef float[:,:] bounds = view.array(shape=(2, 3), itemsize=sizeof(float), format="f")
+
+    cdef float minx = bbox[0][0]
+    cdef float miny = bbox[0][1]
+    cdef float minz = bbox[0][2]
+
+    cdef float maxx = minx
+    cdef float maxy = miny
+    cdef float maxz = minz
+
+    for i in range(1, 8):
+        minx = min(minx, bbox[i][0])
+        miny = min(miny, bbox[i][1])
+        minz = min(minz, bbox[i][2])
+
+        maxx = max(maxx, bbox[i][0])
+        maxy = max(maxy, bbox[i][1])
+        maxz = max(maxz, bbox[i][2])
+
+    bounds[0][0] = minx
+    bounds[0][1] = miny
+    bounds[0][2] = minz
+
+    bounds[1][0] = maxx
+    bounds[1][1] = maxy
+    bounds[1][2] = maxz
+    return bounds
+
 cdef class AbcMesh(object):
     cdef alembic.IPolyMesh mesh
     cdef public double time
