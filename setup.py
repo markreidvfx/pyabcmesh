@@ -48,7 +48,7 @@ extensions = [Extension("abcmesh",
         "Half",
         "Iex",
         "hdf5",
-        # "hdf5_hl",
+        "hdf5_hl",
     ],
     library_dirs = [
         ALEMBIC_LIB_DIR,
