@@ -154,6 +154,14 @@ cdef class AbcCamera(object):
             cdef alembic.CameraSample sampler = get_camera_sampler(self.camera, self.time)
             cdef double far = sampler.getFarClippingPlane()
             return far
+    property vertical_aperture:
+        def __get__(self):
+            cdef alembic.CameraSample sampler = get_camera_sampler(self.camera, self.time)
+            return sampler.getVerticalAperture()
+    property horizontal_aperture:
+        def __get__(self):
+            cdef alembic.CameraSample sampler = get_camera_sampler(self.camera, self.time)
+            return sampler.getHorizontalAperture()
 
     property fovy:
         def __get__(self):
