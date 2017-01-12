@@ -1,6 +1,7 @@
 import abcmesh
 import numpy as np
 from numpy.linalg import inv
+import math
 
 def create_camera(camera, seconds=0.0):
     """
@@ -9,6 +10,7 @@ def create_camera(camera, seconds=0.0):
 
     camera.time = seconds
     world_matrix = np.array(camera.world_matrix).T
+
     scale = np.array( ((1, 0, 0, 0),
                        (0, 1, 0, 0),
                        (0, 0,-1, 0),
@@ -17,10 +19,11 @@ def create_camera(camera, seconds=0.0):
     world_matrix = inv(world_matrix)
     world_matrix.shape = (16)
 
+    ratio = 1920.0/1080
     fovy = camera.fovy
 
     rib = """
-    Projection "perspective" "fov" {fov}
+    Projection "perspective" "fov" [{fov}]
     Transform [{transfrom}]
     """.format(fov=fovy, transfrom=" ".join([str(item) for item in world_matrix]))
     return rib
@@ -69,10 +72,10 @@ if __name__ == "__main__":
     f.close()
 
     f = open("abc_shader.sl", 'w')
-    #f.write("""surface abc_shader(){Ci = color(s, t, 0);}""")
-    f.write("""surface abc_shader(){Ci = color texture("out.tex");}""")
+    f.write("""surface abc_shader(){Ci = color(s, t, 0);}""")
+    # f.write("""surface abc_shader(){Ci = color texture("out.tex");}""")
     f.close()
 
     subprocess.check_call(['shader', "abc_shader.sl"])
-    subprocess.check_call(['prman', '-progress', "out.rib"])
-    #subprocess.check_call(['prman', '-d', 'it', '-progress', "out.rib"])
+    # subprocess.check_call(['prman', '-progress', "out.rib"])
+    subprocess.check_call(['prman', '-d', 'it', '-progress', "out.rib"])

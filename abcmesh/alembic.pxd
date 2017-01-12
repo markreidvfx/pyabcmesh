@@ -5,6 +5,9 @@ cdef extern from "Alembic/AbcGeom/All.h" namespace "Alembic::AbcGeom" nogil:
     cdef cppclass M44d:
         double* operator[](int)
 
+    cdef cppclass M33d:
+        double* operator[](int)
+
     cdef cppclass V3d:
         double x
         double y
@@ -63,12 +66,20 @@ cdef extern from "Alembic/AbcGeom/All.h" namespace "Alembic::AbcGeom" nogil:
         IN3fGeomParam getNormalsParam()
         IV2fGeomParam getUVsParam()
 
+    cdef cppclass FilmBackXformOp:
+        string getHint()
+
     cdef cppclass CameraSample:
         double getFocalLength()
         double getVerticalAperture()
         double getHorizontalAperture()
         double getNearClippingPlane()
         double getFarClippingPlane()
+        double getLensSqueezeRatio()
+        void getScreenWindow(double & oTop, double & oBottom, double & oLeft, double & oRight)
+        M33d getFilmBackMatrix()
+        size_t getNumOps()
+        FilmBackXformOp getOp(size_t index)
 
     cdef cppclass IPolyMesh(IObject):
         IPolyMeshSchema getSchema()

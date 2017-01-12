@@ -108,9 +108,13 @@ cdef double degrees(double value):
 cdef class AbcCamera(object):
     cdef alembic.ICamera camera
     cdef public double time
+    cdef public double render_width
+    cdef public double render_height
 
     def __cinit__(self):
         self.time = 0.0
+        self.render_width = 1920
+        self.render_height = 1080
 
     def __init__(self):
         raise TypeError("cannot initialize from python")
@@ -169,6 +173,12 @@ cdef class AbcCamera(object):
 
             cdef double focal_length = sampler.getFocalLength()
             cdef double vertical_aperture = sampler.getVerticalAperture()
+            cdef double horizontal_aperture = sampler.getHorizontalAperture()
+
+            # correct FOV for resoultion
+            if self.film_fit == 'filmFitHorz' or (self.film_fit == 'filmFitFill' and horizontal_aperture > vertical_aperture):
+                vertical_aperture = horizontal_aperture * self.render_height / self.render_width
+
             # * 10.0 since vertical film aperture is in cm
             cdef double fovy = 2.0 * degrees(math.atan(vertical_aperture * 10.0 /
                                              (2.0 * focal_length)))
@@ -183,11 +193,55 @@ cdef class AbcCamera(object):
             cdef alembic.CameraSample sampler = get_camera_sampler(self.camera, self.time)
 
             cdef double focal_length = sampler.getFocalLength()
+            cdef double vertical_aperture = sampler.getVerticalAperture()
             cdef double horizontal_aperture = sampler.getHorizontalAperture()
+
+            # correct FOV for resoultion
+            if self.film_fit == 'filmFitVert' or (self.film_fit == 'filmFitFill' and horizontal_aperture < vertical_aperture):
+                horizontal_aperture = vertical_aperture * self.render_width / self.render_height
+
             # * 10.0 since vertical film aperture is in cm
             cdef double fovx = 2.0 * degrees(math.atan(horizontal_aperture * 10.0 /
                                              (2.0 * focal_length)))
             return fovx
+
+    property flimback_matrix:
+        def __get__(self):
+            cdef alembic.CameraSample sampler = get_camera_sampler(self.camera, self.time)
+            cdef alembic.M33d m = sampler.getFilmBackMatrix()
+            cdef double[:,:] src =  <double[:3, :3]> &m[0][0]
+            cdef float[:,:] dst = view.array(shape=(3, 3), itemsize=sizeof(float), format="f")
+            # transpose for numpy
+            for y in range(3):
+                for x in range(3):
+                    dst[y][x] = src[x][y]
+
+            return dst
+
+    property lens_squeeze_ratio:
+        def __get__(self):
+            cdef alembic.CameraSample sampler = get_camera_sampler(self.camera, self.time)
+            return sampler.getLensSqueezeRatio()
+
+    property screen_window:
+        def __get__(self):
+            cdef alembic.CameraSample sampler = get_camera_sampler(self.camera, self.time)
+            cdef double oTop = 0
+            cdef double oBottom = 0
+            cdef double oLeft = 0
+            cdef double oRight = 0
+            sampler.getScreenWindow(oTop, oBottom, oLeft, oRight)
+            return (oLeft, oRight, oBottom, oTop)
+
+    property film_fit:
+        def __get__(self):
+            cdef alembic.CameraSample sampler = get_camera_sampler(self.camera, self.time)
+            cdef size_t numOps = sampler.getNumOps()
+            if not numOps:
+                return None
+
+            cdef string hint = sampler.getOp(0).getHint()
+            return hint
 
 def bounds_to_bbox(float[:,:] bounds):
     cdef float[:,:] bbox = view.array(shape=(8, 4), itemsize=sizeof(float), format="f")
